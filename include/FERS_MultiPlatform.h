@@ -231,12 +231,23 @@ typedef f_mutex_t mutex_t; /* old type name used in headers/sources */
  * ------------------------------------------------------------------------- */
 #ifdef FERS_OS_WINDOWS
 #define f_sleep_ms(ms) Sleep((DWORD)(ms))
-#else
-#define f_sleep_ms(ms) usleep((unsigned int)(ms) * 1000u)
-/* Legacy: Sleep(ms) used throughout existing source files on POSIX */
-#define Sleep(ms) f_sleep_ms(ms)
-#endif
 
+#else
+
+#include <time.h>
+
+static inline void f_sleep_ms(int ms)
+{
+	struct timespec ts;
+	ts.tv_sec = ms / 1000;
+	ts.tv_nsec = (ms % 1000) * 1000000L;
+	nanosleep(&ts, NULL);
+}
+
+/* Legacy alias */
+#define Sleep(ms) f_sleep_ms(ms)
+
+#endif
 /* =========================================================================
  * C / C++ linkage guard
  * ========================================================================= */
