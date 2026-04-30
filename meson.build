@@ -10,6 +10,10 @@ cpp = meson.get_compiler('cpp')
 
 inc = include_directories('include')
 
+
+global_args = ['-D_POSIX_C_SOURCE=200809L']
+add_project_arguments(global_args, language: ['c', 'cpp'])
+
 src_files = files(
     'src/FERS_LLeth.c',
     'src/FERS_LLtdl.c',

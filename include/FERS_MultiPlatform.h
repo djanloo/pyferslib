@@ -19,6 +19,19 @@
 #define FERS_MULTIPLATFORM_H
 
 /* =========================================================================
+ * Feature-test macros - must come before ANY system header
+ *
+ * _POSIX_C_SOURCE 200809L unlocks:
+ *   - strdup, getaddrinfo, freeaddrinfo, struct addrinfo
+ *   - clock_gettime, sem_timedwait
+ *   - S_IFDIR, ACCESSPERMS and other stat bits
+ *   - usleep
+ * ========================================================================= */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+/* =========================================================================
  * Standard headers - always included, platform-independent
  * ========================================================================= */
 #include <stdint.h>
@@ -31,7 +44,7 @@
 
 /* =========================================================================
  * Platform detection
- *   FERS_OS_WINDOWS  - any Windows (MSVC, MinGW, Cygwin with WIN32)
+ *   FERS_OS_WINDOWS  - any Windows (MSVC, MinGW, Cygwin with _WIN32)
  *   FERS_OS_MACOS    - Apple macOS / Darwin
  *   FERS_OS_LINUX    - Linux
  *   FERS_OS_POSIX    - macOS or Linux (anything with pthreads / BSD sockets)
@@ -84,19 +97,42 @@
 #endif
 
 /* =========================================================================
- * Portable infinite timeout constant
- *   - On Windows INFINITE is already defined as DWORD 0xFFFFFFFF
- *   - We define our own signed version for use in f_sem_wait()
+ * POSIX permission/stat bits - define fallbacks in case the compiler's
+ * strict mode hides them despite _POSIX_C_SOURCE
+ * ========================================================================= */
+#ifndef ACCESSPERMS
+#define ACCESSPERMS (S_IRWXU | S_IRWXG | S_IRWXO) /* 0777 */
+#endif
+#ifndef S_IFDIR
+#define S_IFDIR 0040000
+#endif
+
+/* =========================================================================
+ * Timeout constants
+ *   FERS_WAIT_INFINITE - canonical name, use this in new code
+ *   INFINITE           - legacy alias kept for existing source files
  * ========================================================================= */
 #define FERS_WAIT_INFINITE INT32_C(-1)
+
+#ifndef INFINITE
+#ifdef FERS_OS_WINDOWS
+/* Windows already defines INFINITE as DWORD 0xFFFFFFFF in winbase.h */
+#else
+#define INFINITE FERS_WAIT_INFINITE
+#endif
+#endif
 
 /* =========================================================================
  * Socket abstraction
  * ========================================================================= */
 
-/* Shutdown flags - same numeric value on all platforms */
+/* Shutdown flags - identical numeric values on all platforms */
 #define FERS_SHUT_SEND 1 /* SD_SEND  / SHUT_WR  */
 #define FERS_SHUT_BOTH 2 /* SD_BOTH  / SHUT_RDWR */
+
+/* Legacy aliases used throughout existing source files */
+#define SHUT_SEND FERS_SHUT_SEND
+#define SHUT_BOTH FERS_SHUT_BOTH
 
 #ifdef FERS_OS_WINDOWS
 typedef SOCKET f_socket_t;
@@ -126,14 +162,22 @@ typedef int f_socket_t;
 #endif
 
 /* =========================================================================
- * Thread abstraction
+ * Thread / mutex / semaphore types
  * ========================================================================= */
 #ifdef FERS_OS_WINDOWS
 typedef HANDLE f_thread_t;
-typedef HANDLE f_sem_t;
 typedef HANDLE f_mutex_t;
+typedef HANDLE f_sem_t;
+#else
+typedef pthread_t f_thread_t;
+typedef pthread_mutex_t f_mutex_t;
+typedef sem_t f_sem_t;
+#endif
 
-/* Mutex */
+/* -------------------------------------------------------------------------
+ * Mutex operations  (canonical names: f_mutex_*)
+ * ------------------------------------------------------------------------- */
+#ifdef FERS_OS_WINDOWS
 #define f_mutex_init(m) (((m) = CreateMutexA(NULL, FALSE, NULL)) == NULL \
 							 ? (int)GetLastError()                       \
 							 : 0)
@@ -143,36 +187,54 @@ typedef HANDLE f_mutex_t;
 							 : 0)
 #define f_mutex_unlock(m) (ReleaseMutex(m) ? 0 : (int)GetLastError())
 #define f_mutex_trylock(m) ((int)WaitForSingleObject((m), 0))
+#else
+#define f_mutex_init(m) pthread_mutex_init(&(m), NULL)
+#define f_mutex_destroy(m) pthread_mutex_destroy(&(m))
+#define f_mutex_lock(m) pthread_mutex_lock(&(m))
+#define f_mutex_unlock(m) pthread_mutex_unlock(&(m))
+#define f_mutex_trylock(m) pthread_mutex_trylock(&(m))
+#endif
 
-/* Thread */
+/* -------------------------------------------------------------------------
+ * Legacy mutex aliases - map old names to new f_mutex_* so existing .c/.cpp
+ * files compile without modification.
+ * ------------------------------------------------------------------------- */
+typedef f_mutex_t mutex_t; /* old type name used in headers/sources */
+
+#define initmutex(m) f_mutex_init(m)
+#define destroymutex(m) f_mutex_destroy(m)
+#define lock(m) f_mutex_lock(m)
+#define unlock(m) f_mutex_unlock(m)
+#define trylock(m) f_mutex_trylock(m)
+
+/* -------------------------------------------------------------------------
+ * Thread operations  (canonical names: f_thread_*)
+ * ------------------------------------------------------------------------- */
+#ifdef FERS_OS_WINDOWS
 #define f_thread_create(f, p, id)                                                                   \
 	((*(id) = (HANDLE)_beginthreadex(NULL, 0,                                                       \
 									 (unsigned int(__stdcall *)(void *))(f), (p), 0, NULL)) == NULL \
 		 ? (int)GetLastError()                                                                      \
 		 : 0)
 #define f_thread_join(id) ((int)WaitForSingleObject((id), INFINITE))
-
-/* Sleep */
-#define f_sleep_ms(ms) Sleep((DWORD)(ms))
-
-#else /* FERS_OS_POSIX */
-typedef pthread_t f_thread_t;
-typedef sem_t f_sem_t;
-typedef pthread_mutex_t f_mutex_t;
-
-/* Mutex */
-#define f_mutex_init(m) pthread_mutex_init(&(m), NULL)
-#define f_mutex_destroy(m) pthread_mutex_destroy(&(m))
-#define f_mutex_lock(m) pthread_mutex_lock(&(m))
-#define f_mutex_unlock(m) pthread_mutex_unlock(&(m))
-#define f_mutex_trylock(m) pthread_mutex_trylock(&(m))
-
-/* Thread */
+#else
 #define f_thread_create(f, p, id) pthread_create((id), NULL, (f), (p))
 #define f_thread_join(id) pthread_join((id), NULL)
+#endif
 
-/* Sleep */
+/* Legacy aliases used in existing source files */
+#define thread_create(f, p, id) f_thread_create((f), (p), (id))
+#define thread_join(id, r) f_thread_join(id)
+
+/* -------------------------------------------------------------------------
+ * Sleep  (canonical: f_sleep_ms)
+ * ------------------------------------------------------------------------- */
+#ifdef FERS_OS_WINDOWS
+#define f_sleep_ms(ms) Sleep((DWORD)(ms))
+#else
 #define f_sleep_ms(ms) usleep((unsigned int)(ms) * 1000u)
+/* Legacy: Sleep(ms) used throughout existing source files on POSIX */
+#define Sleep(ms) f_sleep_ms(ms)
 #endif
 
 /* =========================================================================
@@ -187,17 +249,12 @@ extern "C"
 	 * Time utilities
 	 * ========================================================================= */
 
-	/**
-	 * @brief  Return current wall-clock time in milliseconds since the Unix epoch.
-	 * @return Milliseconds since epoch (uint64_t).
-	 */
+	/** Return current wall-clock time in milliseconds since the Unix epoch. */
 	uint64_t get_time(void);
 
 	/**
-	 * @brief  Return the last-modification time of a file as a Unix timestamp.
-	 * @param  fname  Path to the file.
-	 * @param  ftime  Output: seconds since the Unix epoch (0 on error).
-	 * @return 0 on success, -1 on error.
+	 * Return the last-modification time of a file as a Unix timestamp (seconds
+	 * since epoch). Sets *ftime = 0 and returns -1 on error.
 	 */
 	int GetFileUpdateTime(const char *fname, uint64_t *ftime);
 
@@ -205,30 +262,19 @@ extern "C"
 	 * Semaphore utilities
 	 * ========================================================================= */
 
-	/**
-	 * @brief  Initialise a semaphore to count 0.
-	 * @return FERSLIB_SUCCESS or FERSLIB_ERR_GENERIC.
-	 */
+	/** Initialise a semaphore to count 0. */
 	int f_sem_init(f_sem_t *s);
 
-	/**
-	 * @brief  Destroy a semaphore.
-	 * @return FERSLIB_SUCCESS or FERSLIB_ERR_GENERIC.
-	 */
+	/** Destroy a semaphore. */
 	int f_sem_destroy(f_sem_t *s);
 
 	/**
-	 * @brief  Wait on a semaphore.
-	 * @param  s   Semaphore pointer.
-	 * @param  ms  Timeout in milliseconds; pass FERS_WAIT_INFINITE to block forever.
-	 * @return FERSLIB_SUCCESS, or FERSLIB_ERR_GENERIC on timeout / error.
+	 * Wait on a semaphore.
+	 * @param ms  Timeout in ms; pass FERS_WAIT_INFINITE (or INFINITE) to block.
 	 */
 	int f_sem_wait(f_sem_t *s, int32_t ms);
 
-	/**
-	 * @brief  Post (signal) a semaphore.
-	 * @return FERSLIB_SUCCESS or FERSLIB_ERR_GENERIC.
-	 */
+	/** Post (signal) a semaphore. */
 	int f_sem_post(f_sem_t *s);
 
 #ifdef __cplusplus
