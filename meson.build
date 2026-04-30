@@ -42,7 +42,17 @@ ferslib = library(
     soversion: '1',
 )
 
-# Headers are flat in include/ - no subdir
+ferslib_dep = declare_dependency(
+  link_with: ferslib,
+  include_directories: inc,
+)
+
+test_load = executable(
+  'test_load',
+  'tests/test_load.c',
+  dependencies: ferslib_dep,
+)
+
 install_headers(
     'include/ExportTypes.h',
     'include/FERS_config.h',

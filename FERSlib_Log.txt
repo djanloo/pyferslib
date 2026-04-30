@@ -1,0 +1,5 @@
+FERSlib Log created on Thu Apr 30 20:37:18 2026 UTC
+[00h:00m:00s:000ms][INFO] Opening Device with path usb:0
+[00h:00m:00s:003ms][ERROR] Device not found on USB
+[00h:00m:00s:003ms][ERROR][BRD 00] Device not found on USB
+[00h:00m:00s:003ms][ERROR][BRD 00] Failed to open the USB device 0
