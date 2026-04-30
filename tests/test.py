@@ -3,4 +3,4 @@ sys.path.append("builddir")
 
 import pyfers
 
-h = pyfers.open_device("usb:0")
+h = pyfers.close_device(0)
