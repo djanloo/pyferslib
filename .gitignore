@@ -1,3 +1,6 @@
+# CUSTOM djanloo
+.venv/
+
 # Prerequisites
 *.d
 

@@ -71,3 +71,13 @@ pkg.generate(
     name: 'ferslib',
     description: 'FERS hardware access library',
 )
+
+py = import('python').find_installation('python3')
+pybind11_dep = dependency('pybind11')
+
+py.extension_module(
+  'pyfers',
+  'python/pyfers.cpp',
+  dependencies: [pybind11_dep, ferslib_dep],
+  install: true,
+)
