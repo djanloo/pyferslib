@@ -5,7 +5,7 @@ project(
     default_options: ['c_std=c11', 'cpp_std=c++17', 'warning_level=2'],
 )
 
-cc = meson.get_compiler('c')
+cc  = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
 
 inc = include_directories('include')
@@ -26,17 +26,19 @@ src_files = files(
 )
 
 thread_dep = dependency('threads')
+libusb_dep = dependency('libusb-1.0')
 
 ferslib = library(
     'ferslib',
     src_files,
     include_directories: inc,
-    dependencies: [thread_dep],
+    dependencies: [thread_dep, libusb_dep],
     install: true,
     version: '1.0.0',
     soversion: '1',
 )
 
+# Headers are flat in include/ - no subdir
 install_headers(
     'include/ExportTypes.h',
     'include/FERS_config.h',
@@ -47,14 +49,11 @@ install_headers(
     'include/FERS_paramparser.h',
     'include/FERS_Registers_520X.h',
     'include/FERS_Registers_5215.h',
-    subdir: 'ferslib',
 )
 
 pkg = import('pkgconfig')
-
 pkg.generate(
     ferslib,
     name: 'ferslib',
     description: 'FERS hardware access library',
-    subdirs: 'ferslib',
 )
