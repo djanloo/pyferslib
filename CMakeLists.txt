@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT WIN32)
     add_compile_definitions(_POSIX_C_SOURCE=200809L)
 endif()
+
 # warning level (approx meson warning_level:2)
 if (MSVC)
     add_compile_options(/W3)
@@ -30,7 +31,10 @@ include_directories(include)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+
+if(NOT WIN32)
+    pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+endif()
 
 # -------------------------
 # Sources
@@ -55,15 +59,18 @@ set(FERS_SRC
 # -------------------------
 add_library(ferslib SHARED ${FERS_SRC})
 
-## THIS IS A FIX FOR MINGW Winsock2 -> winsock2
-target_include_directories(ferslib PRIVATE
-    ${CMAKE_SOURCE_DIR}/cmake/winfix
-)
-
 target_include_directories(ferslib
     PUBLIC include
     PRIVATE ${LIBUSB_INCLUDE_DIRS}
 )
+
+if(WIN32)
+    target_link_libraries(ferslib PRIVATE
+        ws2_32      
+        winusb      
+        setupapi    
+    )
+endif()
 
 target_link_libraries(ferslib
     PRIVATE Threads::Threads
@@ -81,6 +88,11 @@ if(WIN32)
     target_compile_options(ferslib PRIVATE -include stdbool.h)
 endif()
 
+# This set the declspec to dllexport
+if(WIN32)
+    target_compile_definitions(ferslib PRIVATE _CAEN_FERS_EXPORT)
+endif()
+
 # -------------------------
 # Install
 # -------------------------
@@ -94,9 +106,10 @@ install(DIRECTORY include/ DESTINATION include)
 # -------------------------
 # Test executable
 # -------------------------
-add_executable(test_load tests/test_load.c)
 
-target_link_libraries(test_load ferslib)
+# add_executable(test_load tests/test_load.c)
+
+# target_link_libraries(test_load ferslib)
 
 # -------------------------
 # pkg-config equivalent
@@ -115,9 +128,9 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ferslib.pc
 # pybind11 module
 # -------------------------
 
+# This is used in the presets to disable the binding for lib-only
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
-# poi wrappa la sezione pybind11
 if(BUILD_PYTHON_BINDINGS)
     execute_process(
         COMMAND python3 -m pybind11 --cmakedir
