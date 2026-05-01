@@ -1,6 +1,7 @@
 import sys
 sys.path.append("builddir")
+sys.path.append("build")
 
 import pyfers
 
-h = pyfers.close_device(0)
+h = pyfers.open_device("eth:192.18")
