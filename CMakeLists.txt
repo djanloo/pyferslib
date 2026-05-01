@@ -9,8 +9,9 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_compile_definitions(_POSIX_C_SOURCE=200809L)
-
+if(NOT WIN32)
+    add_compile_definitions(_POSIX_C_SOURCE=200809L)
+endif()
 # warning level (approx meson warning_level:2)
 if (MSVC)
     add_compile_options(/W3)
@@ -54,6 +55,11 @@ set(FERS_SRC
 # -------------------------
 add_library(ferslib SHARED ${FERS_SRC})
 
+## THIS IS A FIX FOR MINGW Winsock2 -> winsock2
+target_include_directories(ferslib PRIVATE
+    ${CMAKE_SOURCE_DIR}/cmake/winfix
+)
+
 target_include_directories(ferslib
     PUBLIC include
     PRIVATE ${LIBUSB_INCLUDE_DIRS}
@@ -68,6 +74,12 @@ set_target_properties(ferslib PROPERTIES
     VERSION 1.0.0
     SOVERSION 1
 )
+
+# This is for stdbool in win with mingw
+if(WIN32)
+    target_compile_definitions(ferslib PRIVATE _MINGW_HAS_STDBOOL)
+    target_compile_options(ferslib PRIVATE -include stdbool.h)
+endif()
 
 # -------------------------
 # Install
@@ -102,23 +114,31 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ferslib.pc
 # -------------------------
 # pybind11 module
 # -------------------------
-execute_process(
-    COMMAND python3 -m pybind11 --cmakedir
-    OUTPUT_VARIABLE pybind11_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
 
-set(PYBIND11_FINDPYTHON ON)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
-find_package(pybind11 REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Development)
+# poi wrappa la sezione pybind11
+if(BUILD_PYTHON_BINDINGS)
+    execute_process(
+        COMMAND python3 -m pybind11 --cmakedir
+        OUTPUT_VARIABLE pybind11_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
-pybind11_add_module(pyfers
-    python/pyfers.cpp
-)
+    set(PYBIND11_FINDPYTHON ON)
 
-target_link_libraries(pyfers PRIVATE ferslib)
+    find_package(pybind11 REQUIRED)
+    find_package(Python3 REQUIRED COMPONENTS Development)
 
-install(TARGETS pyfers
-    LIBRARY DESTINATION .
-)
+    pybind11_add_module(pyfers
+        python/pyfers.cpp
+    )
+
+    target_link_libraries(pyfers PRIVATE ferslib)
+
+    install(TARGETS pyfers
+        LIBRARY DESTINATION .
+    )
+endif()
+
+

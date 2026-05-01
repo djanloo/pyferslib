@@ -136,7 +136,11 @@
 
 #ifdef FERS_OS_WINDOWS
 typedef SOCKET f_socket_t;
-typedef int ssize_t; /* send()/recv() return int on Windows */
+
+// Send/receive size. Has colliding definition with MinGW for cross platform compilation
+#if defined(_WIN32) && !defined(__MINGW32__)
+typedef int ssize_t;
+#endif
 
 #define f_socket_errno WSAGetLastError()
 #define f_socket_h_errno WSAGetLastError()

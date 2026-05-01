@@ -49,7 +49,7 @@
 #include "FERS_Registers_520X.h"
 #include "FERS_Registers_5215.h"
 
-//#include "FERS_MultiPlatform.h"
+#include "FERS_MultiPlatform.h"
 
 #ifndef WIN32
 #include <stdbool.h>

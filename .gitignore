@@ -1,6 +1,8 @@
 # CUSTOM djanloo
 .venv/
 build/
+build-lib/
+build-win/
 .txt
 FERSlib_Log.txt
 

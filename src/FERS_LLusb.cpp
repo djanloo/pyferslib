@@ -25,11 +25,18 @@ int8_t usbIdx[FERSLIB_MAX_NBRD] = {};
 
 #ifdef WIN32
 
-//Modify this value to match the VID and PID in your USB device descriptor.
-//Use the formatting: "Vid_xxxx&Pid_xxxx" where xxxx is a 16-bit hexadecimal number.
-#define MY_DEVICE_ID  L"Vid_04d8&Pid_0053"		   //Change this number (along with the corresponding VID/PID in the
-												   //microcontroller firmware, and in the driver installation .INF
-												   //file) before moving the design into production.
+// //Modify this value to match the VID and PID in your USB device descriptor.
+// //Use the formatting: "Vid_xxxx&Pid_xxxx" where xxxx is a 16-bit hexadecimal number.
+// #define MY_DEVICE_ID  L"Vid_04d8&Pid_0053"		   //Change this number (along with the corresponding VID/PID in the
+// 												   //microcontroller firmware, and in the driver installation .INF
+// 												   //file) before moving the design into production.
+#ifdef UNICODE
+    #define MY_DEVICE_ID L"Vid_04d8&Pid_0053"
+#else
+    #define MY_DEVICE_ID "Vid_04d8&Pid_0053"
+#endif
+
+
 
 
 BOOL	USBDEV::CheckIfPresentAndGetUSBDevicePath(DWORD InterfaceIndex) {
@@ -50,7 +57,11 @@ BOOL	USBDEV::CheckIfPresentAndGetUSBDevicePath(DWORD InterfaceIndex) {
 	DWORD ErrorStatus;
 	DWORD LoopCounter = 0;
 
+	#ifdef UNICODE
 	wstring DeviceIDToFind = MY_DEVICE_ID;
+	#else
+	string DeviceIDToFind = MY_DEVICE_ID;
+	#endif
 
 	//First populate a list of plugged in devices (by specifying "DIGCF_PRESENT"), which are of the specified class GUID.
 	DeviceInfoTable = SetupDiGetClassDevs(&InterfaceClassGuid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -100,9 +111,9 @@ BOOL	USBDEV::CheckIfPresentAndGetUSBDevicePath(DWORD InterfaceIndex) {
 
 		//Now check if the first string in the hardware ID matches the device ID of my USB device.
 #ifdef UNICODE
-		wstring* DeviceIDFromRegistry = new wstring((wchar_t*)PropertyValueBuffer);
+wstring* DeviceIDFromRegistry = new wstring((wchar_t*)PropertyValueBuffer);
 #else
-		string DeviceIDFromRegistry = new string((char*)PropertyValueBuffer);
+string* DeviceIDFromRegistry = new string((char*)PropertyValueBuffer);
 #endif
 
 		free(PropertyValueBuffer);		//No longer need the PropertyValueBuffer, free the memory to prevent potential memory leaks
