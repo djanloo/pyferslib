@@ -25,7 +25,7 @@
         "toolchainFile": "${sourceDir}/cmake/mingw-toolchain.cmake",
         "cacheVariables": {
             "CMAKE_BUILD_TYPE": "Release",
-            "BUILD_PYTHON_BINDINGS": "OFF"
+            "BUILD_PYTHON_BINDINGS": "ON"
         }
 }
     ],

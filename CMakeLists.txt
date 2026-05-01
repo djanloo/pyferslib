@@ -107,9 +107,9 @@ install(DIRECTORY include/ DESTINATION include)
 # Test executable
 # -------------------------
 
-# add_executable(test_load tests/test_load.c)
+add_executable(test_load tests/test_load.c)
 
-# target_link_libraries(test_load ferslib)
+target_link_libraries(test_load ferslib)
 
 # -------------------------
 # pkg-config equivalent
@@ -128,26 +128,31 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ferslib.pc
 # pybind11 module
 # -------------------------
 
-# This is used in the presets to disable the binding for lib-only
+# This is used in the presets to disable the binding for 'lib-only' preset
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 if(BUILD_PYTHON_BINDINGS)
+    find_package(Python COMPONENTS Interpreter Development)
+
     execute_process(
         COMMAND python3 -m pybind11 --cmakedir
         OUTPUT_VARIABLE pybind11_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-
+    
     set(PYBIND11_FINDPYTHON ON)
-
-    find_package(pybind11 REQUIRED)
-    find_package(Python3 REQUIRED COMPONENTS Development)
+    find_package(pybind11 CONFIG REQUIRED)
 
     pybind11_add_module(pyfers
         python/pyfers.cpp
     )
 
     target_link_libraries(pyfers PRIVATE ferslib)
+    set_target_properties(pyfers PROPERTIES
+                                INTERPROCEDURAL_OPTIMIZATION ON
+                                CXX_VISIBILITY_PRESET hidden
+                                VISIBILITY_INLINES_HIDDEN ON)
+
 
     install(TARGETS pyfers
         LIBRARY DESTINATION .
