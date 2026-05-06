@@ -3,8 +3,11 @@
 build/
 build-lib/
 build-win/
-.txt
+dist/
+CMakeUserPresets.json
+install/
 FERSlib_Log.txt
+.vs/
 
 # Prerequisites
 *.d

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["scikit-build-core>=0.9", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyferslib"
+version = "1.0.0"
+description = "Python bindings for CAEN FERSlib"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "djanloo", email = "g.becuzzi@caen.it"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+wheel.packages = []
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-*"
+skip  = "*-musllinux*"
+
+[tool.cibuildwheel.windows]
+before-build        = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path build"
+
+[tool.cibuildwheel.linux]
+before-build        = "yum install -y libusb1-devel || apt-get install -y libusb-1.0-0-dev"
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.macos]
+before-build = "brew install libusb"

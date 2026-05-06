@@ -5,14 +5,15 @@ project(
     default_options: ['c_std=c11', 'cpp_std=c++17', 'warning_level=2'],
 )
 
-cc  = meson.get_compiler('c')
-cpp = meson.get_compiler('cpp')
+cc      = meson.get_compiler('c')
+cpp     = meson.get_compiler('cpp')
+host_os = host_machine.system()
 
 inc = include_directories('include')
 
-
-global_args = ['-D_POSIX_C_SOURCE=200809L']
-add_project_arguments(global_args, language: ['c', 'cpp'])
+if host_os != 'windows'
+    add_project_arguments('-D_POSIX_C_SOURCE=200809L', language: ['c', 'cpp'])
+endif
 
 src_files = files(
     'src/FERS_LLeth.c',
@@ -30,27 +31,40 @@ src_files = files(
 )
 
 thread_dep = dependency('threads')
-libusb_dep = dependency('libusb-1.0')
+
+if host_os == 'windows'
+    platform_deps = [
+        cc.find_library('ws2_32'),
+        cc.find_library('winusb'),
+        cc.find_library('setupapi'),
+    ]
+    platform_args = ['-D_CAEN_FERS_EXPORT']
+else
+    platform_deps = [dependency('libusb-1.0')]
+    platform_args = []
+endif
 
 ferslib = library(
     'ferslib',
     src_files,
     include_directories: inc,
-    dependencies: [thread_dep, libusb_dep],
-    install: true,
-    version: '1.0.0',
+    dependencies: [thread_dep] + platform_deps,
+    c_args:   platform_args,
+    cpp_args: platform_args,
+    install:  true,
+    version:  '1.0.0',
     soversion: '1',
 )
 
 ferslib_dep = declare_dependency(
-  link_with: ferslib,
-  include_directories: inc,
+    link_with:         ferslib,
+    include_directories: inc,
 )
 
-test_load = executable(
-  'test_load',
-  'tests/test_load.c',
-  dependencies: ferslib_dep,
+executable(
+    'test_load',
+    'tests/test_load.c',
+    dependencies: ferslib_dep,
 )
 
 install_headers(
@@ -68,16 +82,19 @@ install_headers(
 pkg = import('pkgconfig')
 pkg.generate(
     ferslib,
-    name: 'ferslib',
+    name:        'ferslib',
     description: 'FERS hardware access library',
 )
 
-py = import('python').find_installation('python3')
+py           = import('python').find_installation('python3')
 pybind11_dep = dependency('pybind11')
 
+pyfers_args = host_os == 'windows' ? ['-DNOMINMAX', '-DWIN32_LEAN_AND_MEAN'] : []
+
 py.extension_module(
-  'pyfers',
-  'python/pyfers.cpp',
-  dependencies: [pybind11_dep, ferslib_dep],
-  install: true,
+    'pyfers',
+    'python/pyfers.cpp',
+    dependencies: [pybind11_dep, ferslib_dep],
+    cpp_args: pyfers_args,
+    install:  true,
 )

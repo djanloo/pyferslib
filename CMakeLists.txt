@@ -3,37 +3,37 @@ cmake_minimum_required(VERSION 3.16)
 project(ferslib VERSION 1.0.0 LANGUAGES C CXX)
 
 # -------------------------
-# Standard + flags globali
+# C/C++ standards
 # -------------------------
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# -------------------------
+# Compiler flags
+# -------------------------
 if(NOT WIN32)
     add_compile_definitions(_POSIX_C_SOURCE=200809L)
 endif()
 
-# warning level (approx meson warning_level:2)
-if (MSVC)
+if(MSVC)
     add_compile_options(/W3)
 else()
     add_compile_options(-Wall -Wextra)
 endif()
 
 # -------------------------
-# Include dirs
-# -------------------------
-include_directories(include)
-
-# -------------------------
 # Dependencies
 # -------------------------
 find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
 
-
-if(NOT WIN32)
+if(WIN32)
+    set(PLATFORM_LIBS ws2_32 winusb setupapi)
+else()
+    find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+    set(PLATFORM_LIBS         ${LIBUSB_LIBRARIES})
+    set(PLATFORM_INCLUDE_DIRS ${LIBUSB_INCLUDE_DIRS})
 endif()
 
 # -------------------------
@@ -60,37 +60,27 @@ set(FERS_SRC
 add_library(ferslib SHARED ${FERS_SRC})
 
 target_include_directories(ferslib
-    PUBLIC include
-    PRIVATE ${LIBUSB_INCLUDE_DIRS}
+    PUBLIC  include
+    PRIVATE ${PLATFORM_INCLUDE_DIRS}
 )
-
-if(WIN32)
-    target_link_libraries(ferslib PRIVATE
-        ws2_32      
-        winusb      
-        setupapi    
-    )
-endif()
 
 target_link_libraries(ferslib
     PRIVATE Threads::Threads
-    PRIVATE ${LIBUSB_LIBRARIES}
+    PRIVATE ${PLATFORM_LIBS}
 )
 
 set_target_properties(ferslib PROPERTIES
-    VERSION 1.0.0
+    VERSION   1.0.0
     SOVERSION 1
 )
 
-# This is for stdbool in win with mingw
-if(WIN32)
-    target_compile_definitions(ferslib PRIVATE _MINGW_HAS_STDBOOL)
-    target_compile_options(ferslib PRIVATE -include stdbool.h)
-endif()
-
-# This set the declspec to dllexport
 if(WIN32)
     target_compile_definitions(ferslib PRIVATE _CAEN_FERS_EXPORT)
+endif()
+
+if(MINGW)
+    target_compile_definitions(ferslib PRIVATE _MINGW_HAS_STDBOOL)
+    target_compile_options(ferslib PRIVATE -include stdbool.h)
 endif()
 
 # -------------------------
@@ -106,13 +96,11 @@ install(DIRECTORY include/ DESTINATION include)
 # -------------------------
 # Test executable
 # -------------------------
-
 add_executable(test_load tests/test_load.c)
-
-target_link_libraries(test_load ferslib)
+target_link_libraries(test_load PRIVATE ferslib)
 
 # -------------------------
-# pkg-config equivalent
+# pkg-config
 # -------------------------
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/ferslib.pc.in
@@ -125,38 +113,25 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ferslib.pc
 )
 
 # -------------------------
-# pybind11 module
+# Python bindings (pybind11)
 # -------------------------
-
-# This is used in the presets to disable the binding for 'lib-only' preset
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 if(BUILD_PYTHON_BINDINGS)
-    find_package(Python COMPONENTS Interpreter Development)
-
-    execute_process(
-        COMMAND python3 -m pybind11 --cmakedir
-        OUTPUT_VARIABLE pybind11_DIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    set(PYBIND11_FINDPYTHON ON)
     find_package(pybind11 CONFIG REQUIRED)
 
-    pybind11_add_module(pyfers
-        python/pyfers.cpp
-    )
+    pybind11_add_module(pyfers python/pyfers.cpp)
 
     target_link_libraries(pyfers PRIVATE ferslib)
+
+    if(WIN32)
+        target_compile_definitions(pyfers PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    endif()
+
     set_target_properties(pyfers PROPERTIES
-                                INTERPROCEDURAL_OPTIMIZATION ON
-                                CXX_VISIBILITY_PRESET hidden
-                                VISIBILITY_INLINES_HIDDEN ON)
-
-
-    install(TARGETS pyfers
-        LIBRARY DESTINATION .
+        CXX_VISIBILITY_PRESET     hidden
+        VISIBILITY_INLINES_HIDDEN ON
     )
+
+    install(TARGETS pyfers LIBRARY DESTINATION .)
 endif()
-
-

@@ -19,19 +19,19 @@
             }
         },
         {
-        "name": "windows-cross",
-        "binaryDir": "${sourceDir}/build-win",
-        "generator": "Ninja",
-        "toolchainFile": "${sourceDir}/cmake/mingw-toolchain.cmake",
-        "cacheVariables": {
-            "CMAKE_BUILD_TYPE": "Release",
-            "BUILD_PYTHON_BINDINGS": "ON"
+            "name": "windows-cross",
+            "binaryDir": "${sourceDir}/build-win",
+            "generator": "Ninja",
+            "toolchainFile": "${sourceDir}/cmake/mingw-toolchain.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_PYTHON_BINDINGS": "ON"
+            }
         }
-}
     ],
     "buildPresets": [
-        {"name": "default",  "configurePreset": "default"},
-        {"name": "lib-only", "configurePreset": "lib-only"},
+        {"name": "default",       "configurePreset": "default"},
+        {"name": "lib-only",      "configurePreset": "lib-only"},
         {"name": "windows-cross", "configurePreset": "windows-cross"}
     ]
 }
